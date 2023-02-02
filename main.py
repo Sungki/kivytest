@@ -1,25 +1,60 @@
-import kivy.uix.boxlayout
-import kivy.uix.textinput
-import kivy.uix.label
-import kivy.uix.button
-from kivy.app import App
-from kivy.uix.button import Button
+# import pygame module in this program
+import pygame
+from os import environ
+from sys import platform as _sys_platform
 
 
 
-class SimpleApp(kivy.app.App):
- def build(self):
-  self.textInput = kivy.uix.textinput.TextInput()
-  self.label = kivy.uix.label.Label(text="Your Message.")
-  self.button = kivy.uix.button.Button(text="Click Me.")
-  self.button.bind(on_press=self.displayMessage)
-  self.boxLayout = kivy.uix.boxlayout.BoxLayout(orientation="vertical")
-  self.boxLayout.add_widget(self.textInput)
-  self.boxLayout.add_widget(self.label)
-  self.boxLayout.add_widget(self.button)
-  return self.boxLayout
- def displayMessage(self, btn):
-  self.label.text = self.textInput.text
-if __name__ == "__main__":
- simpleApp = SimpleApp()
-simpleApp.run()
+
+def platform():
+    if 'ANDROID_ARGUMENT' in environ:
+        return "android"
+    elif _sys_platform in ('linux', 'linux2','linux3'):
+        return "linux"
+    elif _sys_platform in ('win32', 'cygwin'):
+        return 'win'
+
+
+pygame.init()
+
+
+white = (255, 255, 255)
+
+X =720 
+Y = 1080
+
+display_surface = pygame.display.set_mode((X, Y ),pygame.FULLSCREEN)
+
+# set the pygame window name
+pygame.display.set_caption('Pygame To Apk')
+
+if platform()=="android":
+    path="/data/data/org.test.pgame/files/app/"
+elif platform()=="linux":
+    path="./"
+
+image = pygame.image.load(path+"image.png")
+
+# infinite loop
+while True :
+
+    
+    display_surface.fill(white)
+
+    
+    display_surface.blit(image, (0, 0))
+
+    
+    for event in pygame.event.get() :
+
+        
+        if event.type == pygame.QUIT :
+
+            
+            pygame.quit()
+
+           
+            quit()
+
+       
+        pygame.display.update()
