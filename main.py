@@ -1,6 +1,3 @@
-
-import os
-import kivy3
 from kivy.app import App
 from kivy.uix.floatlayout import FloatLayout
 from kivy.clock import Clock
