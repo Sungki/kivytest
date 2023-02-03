@@ -1,91 +1,63 @@
-import pygame as pg
-import moderngl as mgl
-import struct
-import sys
-from os import environ
-from sys import platform as _sys_platform
-import math
-
-def platform():
-    if 'ANDROID_ARGUMENT' in environ:
-        return "android"
-    elif _sys_platform in ('linux', 'linux2','linux3'):
-        return "linux"
-    elif _sys_platform in ('win32', 'cygwin'):
-        return 'win'
-
-class App:
-    def __init__(self, win_size=(1920, 1080)):
-        # opengl context
-        pg.display.set_mode(win_size, flags=pg.OPENGL | pg.DOUBLEBUF | pg.FULLSCREEN)
-        self.ctx = mgl.create_context()
-
-        # time objects
-        self.clock = pg.time.Clock()
-
-        self.path = ""
-
-        if platform()=="android":
-            self.path="/data/data/org.test.pgame/files/app/"
-        elif platform()=="linux":
-            self.path="./"
-
-        # load shaders
-        with open(self.path+'programs/vertex.glsl') as f:
-            vertex = f.read()
-        with open(self.path+'programs/fragment.glsl') as f:
-            fragment = f.read()
-        self.program = self.ctx.program(vertex_shader=vertex, fragment_shader=fragment)
-
-        # quad screen vertices
-        vertices = [(-1, -1), (1, -1), (1, 1), (-1, 1), (-1, -1), (1, 1)]
-
-        # quad vbo
-        vertex_data = struct.pack(f'{len(vertices) * len(vertices[0])}f', *sum(vertices, ()))
-        self.vbo = self.ctx.buffer(vertex_data)
-
-        # quad vao
-        self.vao = self.ctx.vertex_array(self.program, [(self.vbo, '2f', 'in_position')])
-
-        # uniforms
-        self.set_uniform('u_resolution', win_size)
-
-    def render(self):
-        self.ctx.clear()
-        self.vao.render()
-        pg.display.flip()
-
-    def update(self):
-        self.set_uniform('u_time', pg.time.get_ticks() * 0.001)
-
-    def run(self):
-        while True:
-            self.check_events()
-            self.update()
-            self.render()
-            self.clock.tick(0)
-            fps = self.clock.get_fps()
-            pg.display.set_caption(f'{fps :.1f}')
-
-    def set_uniform(self, u_name, u_value):
-        try:
-            self.program[u_name] = u_value
-        except KeyError:
-            pass
-
-    def destroy(self):
-        self.vbo.release()
-        self.program.release()
-        self.vao.release()
-
-    def check_events(self):
-        for event in pg.event.get():
-            if event.type == pg.QUIT or (event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE):
-                self.destroy()
-                pg.quit()
-                sys.exit()
+from kivy.app import App
+from kivy.clock import Clock
+from kivy.core.window import Window
+from kivy.uix.widget import Widget
+from kivy.resources import resource_find
+from kivy.graphics.transformation import Matrix
+from kivy.graphics.opengl import glEnable, glDisable, GL_DEPTH_TEST
+from kivy.graphics import RenderContext, Callback, PushMatrix, PopMatrix, \
+    Color, Translate, Rotate, Mesh, UpdateNormalMatrix
+from objloader import ObjFile
 
 
-if __name__ == '__main__':
-    app = App()
-    app.run()
+class Renderer(Widget):
+    def __init__(self, **kwargs):
+        self.canvas = RenderContext(compute_normal_mat=True)
+        self.canvas.shader.source = resource_find('simple.glsl')
+        self.scene = ObjFile(resource_find("monkey.obj"))
+        super(Renderer, self).__init__(**kwargs)
+        with self.canvas:
+            self.cb = Callback(self.setup_gl_context)
+            PushMatrix()
+            self.setup_scene()
+            PopMatrix()
+            self.cb = Callback(self.reset_gl_context)
+        Clock.schedule_interval(self.update_glsl, 1 / 60.)
+
+    def setup_gl_context(self, *args):
+        glEnable(GL_DEPTH_TEST)
+
+    def reset_gl_context(self, *args):
+        glDisable(GL_DEPTH_TEST)
+
+    def update_glsl(self, delta):
+        asp = self.width / float(self.height)
+        proj = Matrix().view_clip(-asp, asp, -1, 1, 1, 100, 1)
+        self.canvas['projection_mat'] = proj
+        self.canvas['diffuse_light'] = (1.0, 1.0, 0.8)
+        self.canvas['ambient_light'] = (0.1, 0.1, 0.1)
+        self.rot.angle += delta * 100
+
+    def setup_scene(self):
+        Color(1, 1, 1, 1)
+        PushMatrix()
+        Translate(0, 0, -3)
+        self.rot = Rotate(1, 0, 1, 0)
+        m = list(self.scene.objects.values())[0]
+        UpdateNormalMatrix()
+        self.mesh = Mesh(
+            vertices=m.vertices,
+            indices=m.indices,
+            fmt=m.vertex_format,
+            mode='triangles',
+        )
+        PopMatrix()
+
+
+class RendererApp(App):
+    def build(self):
+        return Renderer()
+
+
+if __name__ == "__main__":
+    RendererApp().run()
